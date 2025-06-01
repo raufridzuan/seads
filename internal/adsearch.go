@@ -289,6 +289,12 @@ func runConcurrentSearch(
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			// Quick fix Recover from panics
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Printf("\n\n******\nPanic in runConcurrentSearch for %s\n*******\n\n", engineName)
+				}
+			}()
 			ads, err := engineFunc(query, userAgent, engineName, noRedirection)
 			if err != nil {
 				errors <- err
