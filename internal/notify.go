@@ -27,7 +27,11 @@ func (tn *TelegramNotifier) SendNotificationMessage(message string) error {
 	}
 
 	url := fmt.Sprintf("telegram://%s@telegram?channels=%s", tn.Token, chats)
-	return shoutrrr.Send(url, message)
+	err := shoutrrr.Send(url, message)
+	if err != nil {
+		fmt.Printf("[Telegram] Error sending notification: %v", err)
+	}
+	return err
 }
 
 // SlackNotifier holds configurations for sending the message via Slack
@@ -46,7 +50,11 @@ func (sn *SlackNotifier) SendNotificationMessage(message string) error {
 	}
 
 	url := fmt.Sprintf("slack://%s@%s", sn.Token, channels)
-	return shoutrrr.Send(url, message)
+	err := shoutrrr.Send(url, message)
+	if err != nil {
+		fmt.Printf("[Slack] Error sending notification: %v", err)
+	}
+	return err
 }
 
 // MailNotifier holds configurations for sending the message via email
@@ -69,13 +77,35 @@ func (mn *MailNotifier) SendNotificationMessage(message string) error {
 	}
 	url := fmt.Sprintf("smtp://%s:%s@%s:%s/?from=%s&to=%s&subject=seadscan notification",
 		mn.Username, mn.Password, mn.Host, mn.Port, mn.From, mailrecipients)
-	return shoutrrr.Send(url, message)
+	err := shoutrrr.Send(url, message)
+	if err != nil {
+		fmt.Printf("[Mail] Error sending notification: %v", err)
+	}
+	return err
+}
+
+// DiscordNotifier holds configurations for sending the message via Slack
+type DiscordNotifier struct {
+	Token      string `yaml:"token"`
+	Webhook_id string `yaml:"webhook_id"`
+}
+
+// SendNotificationMessage sends the specified message via Slack
+func (sn *DiscordNotifier) SendNotificationMessage(message string) error {
+	url := fmt.Sprintf("discord://%s@%s", sn.Token, sn.Webhook_id)
+	err := shoutrrr.Send(url, message)
+	if err != nil {
+		fmt.Printf("[Discord] Error sending notification: %v", err)
+	}
+	return err
 }
 
 // SendNotifications creates the message to be sent and sends it using the specified notification services
 func (config *Config) SendNotifications(adsToNotify []AdResult) {
 	message := createNotificationMessage(adsToNotify)
-
+	if len(message) != 0 {
+		fmt.Printf("\n[Notify]Message to sent: \n%s\n\n", message)
+	}
 	notifiers := []Notifier{}
 	if config.SlackNotifier != nil {
 		notifiers = append(notifiers, config.SlackNotifier)
@@ -85,6 +115,9 @@ func (config *Config) SendNotifications(adsToNotify []AdResult) {
 	}
 	if config.MailNotifier != nil {
 		notifiers = append(notifiers, config.MailNotifier)
+	}
+	if config.DiscordNotifier != nil {
+		notifiers = append(notifiers, config.DiscordNotifier)
 	}
 
 	notificationsSent := false
