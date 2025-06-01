@@ -20,7 +20,7 @@ func ResolveDoubleClickAdURL(doubleClickURL string) (string, error) {
 
 	test, err := url.Parse(destURL)
 	if err != nil || test.Host == "" {
-		return "", fmt.Errorf("Skipping invalid Bing URL: %s, Error: %v\n", destURL, err)
+		return "", fmt.Errorf("Skipping invalid DoubleClick URL: %s, Error: %v\n", destURL, err)
 	}
 
 	return destURL, nil
