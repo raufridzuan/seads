@@ -1,5 +1,11 @@
 tests/*
 .DS_Store
 .idea
-.config.yaml
+.config*.yaml
+configs
 .gitignore
+screenshots
+htmls
+jsons
+seads
+run-sead*.sh
