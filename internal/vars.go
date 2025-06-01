@@ -14,15 +14,17 @@ type SearchEngineFunction struct {
 
 // AdResult contains information regarding an ad found
 type AdResult struct {
-	Engine           string    `json:"engine"`
-	Query            string    `json:"query"`
-	OriginalAdURL    string    `json:"OriginalAdURL"`
-	FinalDomainURL   string    `json:"final-domain-url"`
-	FinalRedirectURL string    `json:"final-redirect-url"`
-	RedirectChain    []string  `json:"redirect-chain"`
-	Time             time.Time `json:"time"`
-	Advertiser       string    `json:"advertiser"`
-	Location         string    `json:"location"`
+	Engine           string                    `json:"engine"`
+	Query            string                    `json:"query"`
+	OriginalAdURL    string                    `json:"OriginalAdURL"`
+	FinalDomainURL   string                    `json:"final-domain-url"`
+	FinalRedirectURL string                    `json:"final-redirect-url"`
+	RedirectChain    []string                  `json:"redirect-chain"`
+	Time             time.Time                 `json:"time"`
+	Advertiser       string                    `json:"advertiser"`
+	Location         string                    `json:"location"`
+	ExpectedDomains  bool                      `json:"expected-domains"`
+	URLScan          URLScanSubmissionResponse `json:"urlscan"`
 }
 
 var (
@@ -39,6 +41,7 @@ var (
 	NoRedirection       = false
 	HtmlPath            = ""
 	Logger              = false
+	DirectQuery         = ""
 
 	// search engine URLs
 	googleurl     = "https://www.google.com/search?q="

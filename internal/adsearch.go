@@ -259,11 +259,11 @@ func resolveAdURLByDomain(adURL string) (string, string) {
 // searchAdsWithEngine performs concurrent ad searches using a specific search engine
 func searchAdsWithEngine(
 	engineFunc func(string, string, string, bool) ([]AdResult, error),
-	query SearchQuery, engineName string, userAgent string, noRedirection bool) ([]AdResult, error) {
-	encodedQuery := url.QueryEscape(query.SearchTerm)
+	query, engineName string, userAgent string, noRedirection bool) ([]AdResult, error) {
+	encodedQuery := url.QueryEscape(query)
 
 	if Logger {
-		log.Printf("Searching ads on %s\n", searchEngineURLs[engineName]+query.SearchTerm)
+		log.Printf("Searching ads on %s\n", searchEngineURLs[engineName]+query)
 	}
 
 	// Collect ads using concurrent workers
@@ -341,51 +341,81 @@ func processSearchResults(ads []AdResult, userAgent string, noRedirection bool) 
 }
 
 // RunAdSearch returns the ads found in the search engines for the specified config
-func RunAdSearch(config Config) ([]AdResult, []AdResult, []AdResult, error) {
+func RunAdSearch(config Config) ([]AdResult, []AdResult, error) {
 	var notifications []AdResult
 	var allAdResults []AdResult
-	var submitToURLScan []AdResult
 
 	// Get global domain exclusion list
 	globalDomainExclusionList := config.GlobalDomainExclusion.GlobalDomainExclusionList
 
-	for _, searchQuery := range config.Queries {
-		// Merge expected/exclusion individual expected domain with global domain lists
-		expectedDomainList := mergeLists(globalDomainExclusionList, searchQuery.ExpectedDomains)
-		log.Printf("\n* SEARCHING FOR: '%s'\n\n", searchQuery.SearchTerm)
-
+	if DirectQuery != "" && len(DirectQuery) > 0 {
+		log.Printf("DirectQuery SEARCH FOR: %s\n\n", DirectQuery)
 		for _, engine := range searchEnginesFunctions {
-			log.Printf("> Search Engine lookup using '%s' for keyword '%s'\n", engine.EngineName, searchQuery.SearchTerm)
-			adResults, err := searchAdsWithEngine(engine.SearchFunction, searchQuery, engine.EngineName, UserAgentString, NoRedirection)
+			log.Printf("\n> Search Engine lookup using '%s' for keyword '%s'\n", engine.EngineName, DirectQuery)
+			adResults, err := searchAdsWithEngine(engine.SearchFunction, DirectQuery, engine.EngineName, UserAgentString, NoRedirection)
 			if err != nil {
-				return nil, nil, nil, err
+				fmt.Printf("Error searching using %s: %v\n", engine.EngineName, err)
+				return nil, nil, err
 			}
 			if len(adResults) == 0 {
 				italic.Printf("  no ads found\n\n")
 			} else {
-				processAdResults(adResults, expectedDomainList, &allAdResults, &notifications, &submitToURLScan)
+				err := processAdResults(adResults, globalDomainExclusionList, &allAdResults, &notifications, config)
+				if err != nil {
+					return nil, nil, err
+				}
 			}
 		}
+	} else {
+		for _, searchQuery := range config.Queries {
+			// Merge expected/exclusion individual expected domain with global domain lists
+			expectedDomainList := mergeLists(globalDomainExclusionList, searchQuery.ExpectedDomains)
+			log.Printf("\n* SEARCHING FOR: '%s'\n\n", searchQuery.SearchTerm)
+
+			for _, engine := range searchEnginesFunctions {
+				log.Printf("> Search Engine lookup using '%s' for keyword '%s'\n", engine.EngineName, searchQuery.SearchTerm)
+				adResults, err := searchAdsWithEngine(engine.SearchFunction, searchQuery.SearchTerm, engine.EngineName, UserAgentString, NoRedirection)
+				if err != nil {
+					fmt.Printf("Error searching using %s: %v\n", engine.EngineName, err)
+					return nil, nil, err
+				}
+				if len(adResults) == 0 {
+					italic.Printf("  no ads found\n\n")
+				} else {
+					err := processAdResults(adResults, expectedDomainList, &allAdResults, &notifications, config)
+					if err != nil {
+						return nil, nil, err
+					}
+				}
+			}
+		}
+
 	}
-	return allAdResults, notifications, submitToURLScan, nil
+
+	return allAdResults, notifications, nil
 }
 
 // processAdResults processes the ad results and updates the respective lists
-func processAdResults(adResults []AdResult, expectedDomainList []string, allAdResults *[]AdResult, notifications *[]AdResult, submitToURLScan *[]AdResult) error {
+func processAdResults(adResults []AdResult, expectedDomainList []string, allAdResults *[]AdResult, notifications *[]AdResult, config Config) error {
 	// Iterate over each ad result
-	for _, adResult := range adResults {
-		// Append the ad result to the allAdResults list
-		*allAdResults = append(*allAdResults, adResult)
+	for i := range adResults {
+		adResult := adResults[i]
 
 		if !IsExpectedDomain(adResult.FinalDomainURL, expectedDomainList) {
 			if Logger {
 				log.Printf("\nURL's domain not on expectedDomain: %s not in '%s'\n", adResult.FinalDomainURL, expectedDomainList)
 			}
 			printDomainInfo(adResult, false)
+			adResult.ExpectedDomains = false
 
-			// Append the ad result to submitToURLScan list if enabled
+			// Submit original advertisement URL to URLScan if enabled
 			if EnableURLScan {
-				*submitToURLScan = append(*submitToURLScan, adResult)
+				urlScanResult, err := SubmitURLScan(config, adResult.OriginalAdURL)
+				if err != nil {
+					log.Printf("Error submitting to URLScan: %v\n", err)
+				} else {
+					adResult.URLScan = urlScanResult
+				}
 			}
 
 			// Append the ad result to the notifications list if notifications are enabled
@@ -402,8 +432,10 @@ func processAdResults(adResults []AdResult, expectedDomainList []string, allAdRe
 		} else {
 			// add is in the expected domain list
 			printDomainInfo(adResult, true)
+			adResult.ExpectedDomains = true
 		}
-
+		// Append the ad result to the allAdResults list
+		*allAdResults = append(*allAdResults, adResult)
 	}
 	return nil
 }

@@ -26,7 +26,7 @@ func main() {
 
 	internal.PrintFlags()
 
-	allAdResults, notifications, submitToURLScan, err := internal.RunAdSearch(config)
+	allAdResults, notifications, err := internal.RunAdSearch(config)
 	if err != nil {
 		log.Fatalf("error running ad search: %v\n", err)
 	}
@@ -44,16 +44,6 @@ func main() {
 	if internal.EnableNotifications && len(notifications) > 0 {
 		fmt.Println()
 		config.SendNotifications(notifications)
-	}
-
-	// Submit domain to URLScan
-	if internal.EnableURLScan {
-		if len(submitToURLScan) > 0 {
-			fmt.Println("Total URLs to be submitted to URLScan: ", len(submitToURLScan))
-			config.SubmitURLScan(submitToURLScan)
-		} else {
-			fmt.Println("URLScan enabled, but no submissions")
-		}
 	}
 
 	fmt.Println()

@@ -130,12 +130,6 @@ func mergeLists(firstList, secondList []string) []string {
 
 // printDomainInfo logs domain information based on whether it is expected or unexpected
 func printDomainInfo(resultAd AdResult, expected bool) {
-	if expected {
-		green.Printf("  [+] expected domain: ")
-	} else {
-		red.Printf("  [!] unexpected domain: ")
-	}
-
 	domainToPrint := resultAd.FinalDomainURL
 	urlToPrint := resultAd.FinalRedirectURL
 	originalURL := resultAd.OriginalAdURL
@@ -146,14 +140,20 @@ func printDomainInfo(resultAd AdResult, expected bool) {
 		originalURL = defangURL(originalURL)
 	}
 
-	log.Printf("%s => %s", domainToPrint, urlToPrint)
+	if expected {
+		green.Printf("  [+] expected domain: '%s'", resultAd.FinalDomainURL)
+	} else {
+		red.Printf("  [!] unexpected domain: '%s'", resultAd.FinalDomainURL)
+	}
+
+	log.Printf("\t%s => %s\n", domainToPrint, urlToPrint)
 	origDom, _ := extractDomain(originalURL)
 	if domainToPrint != origDom {
-		log.Printf("  original URL: %s\n", originalURL)
+		log.Printf("\t\toriginal URL: %s\n", originalURL)
 	}
 
 	if resultAd.Advertiser != "" {
-		log.Printf("  advertiser name: %s\n  advertiser location: %s\n", resultAd.Advertiser, resultAd.Location)
+		log.Printf("\t\t\tadvertiser name: %s\n\t\t\tadvertiser location: %s\n", resultAd.Advertiser, resultAd.Location)
 	}
 	fmt.Println()
 }
@@ -172,5 +172,6 @@ func PrintFlags() {
 	log.Printf("  OutputFilePath: %s\n", OutputFilePath)
 	log.Printf("  NoRedirection: %t\n", NoRedirection)
 	log.Printf("  HtmlPath: %s\n", HtmlPath)
-	log.Printf("  Logger: %t\n\n", Logger)
+	log.Printf("  Logger: %t\n", Logger)
+	log.Printf("  DirectQuery: %s\n\n", DirectQuery)
 }
