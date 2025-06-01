@@ -209,6 +209,11 @@ func ResolveAdUrl(adURL string, currentAd *AdResult) {
 		redirectURL, finalDomain = resolveAdURLByDomain(redirectURL)
 	}
 
+	// Handle d.adx.io nested redirects
+	if finalDomain == dadxio {
+		redirectURL, finalDomain = resolveAdURLByDomain(redirectURL)
+	}
+
 	// Update the AdResult with final values
 	currentAd.FinalRedirectURL = redirectURL
 	currentAd.FinalDomainURL = finalDomain
@@ -232,6 +237,8 @@ func resolveAdURLByDomain(adURL string) (string, string) {
 		bingdomain:        ResolveBingAdURL,
 		ddgdomain:         ResolveDuckDuckGoAdURL,
 		doubleclickdomain: ResolveDoubleClickAdURL,
+		googleadsservices: ResolveGoogleAdURL,
+		dadxio:            ResolveDadxioAdURL,
 	}
 
 	if resolver, exists := resolvers[adDomain]; exists {
