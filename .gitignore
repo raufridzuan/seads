@@ -1,5 +1,13 @@
+out/*
 tests/*
 .DS_Store
 .idea
 .config.yaml
 .gitignore
+directquery.yaml
+temp-exclusion.txt
+profile2/*
+screenshots/*
+htmls/*
+diff.log
+exclusion-list.txt

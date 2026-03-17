@@ -15,6 +15,17 @@ func searchBingAds(query, userAgent, engine string, noRedirectionFlag bool) ([]A
 	page.MustWaitLoad()
 	defer browser.MustClose()
 
+	// Check for challenge page
+	blocked, err := isChallengePage(page)
+	if err != nil {
+		return nil, err
+	}
+
+	// What to do when it's blocked?
+	if blocked {
+		// TODO: terminate
+	}
+
 	if len(ScreenshotPath) > 0 {
 		takeScreenshot(page, engine, query)
 	}
@@ -26,6 +37,15 @@ func searchBingAds(query, userAgent, engine string, noRedirectionFlag bool) ([]A
 	if err != nil {
 		return nil, err
 	}
+
+	// Extract Search Results by parsing
+	srLinks, err := extractSRs(browser, page, userAgent, "a.tilk", "href", query, engine, noRedirectionFlag)
+	if err != nil {
+		return nil, err
+	}
+
+	// Merge with adLinks structs
+	adLinks = append(adLinks, srLinks...)
 
 	return adLinks, nil
 }

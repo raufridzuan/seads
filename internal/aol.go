@@ -1,7 +1,6 @@
 package internal
 
 import (
-	// "github.com/go-rod/rod"
 	"github.com/go-rod/rod"
 )
 

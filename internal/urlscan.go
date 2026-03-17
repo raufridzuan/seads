@@ -7,9 +7,17 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"regexp"
 	"strings"
-	"time"
 )
+
+// URLScanSubmitter holds configurations for sending URL with unexpected domain to URLScan
+type URLScanSubmitter struct {
+	Token      string `yaml:"token"`
+	ScanURL    string `yaml:"scanurl"`
+	Tags       string `yaml:"tags"`
+	Visibility string `yaml:"visibility"`
+}
 
 // URLScanSubmissionResponse represents the response from URLScan
 type URLScanSubmissionResponse struct {
@@ -27,26 +35,102 @@ type Options struct {
 	UserAgent string `json:"useragent"`
 }
 
-// SubmitURLScan submit single URL to the URLScan service for scanning
-func SubmitURLScan(config Config, urlToScan string) (URLScanSubmissionResponse, error) {
+// deduplicateURLs removes duplicate URLs from a list of AdResult objects
+func deduplicateURLs(adsToScan []AdResult) []string {
+	var uniqueAdLinks []string
+	seenURLs := make(map[string]struct{})
+	for _, ads := range adsToScan {
+		if _, seen := seenURLs[ads.OriginalAdURL]; !seen {
+			uniqueAdLinks = append(uniqueAdLinks, ads.OriginalAdURL)
+			seenURLs[ads.OriginalAdURL] = struct{}{}
+		}
+	}
+	return uniqueAdLinks
+}
 
+func (config *Config) URLScanSubmission(allAdResults []AdResult) {
+	urlscanEndpoint := config.URLScanSubmitter.ScanURL
 	token := config.URLScanSubmitter.Token
-	tags := config.URLScanSubmitter.Tags
 	visibility := config.URLScanSubmitter.Visibility
+	tagsOriginal := config.URLScanSubmitter.Tags
 
-	taglist := strings.Split(tags, ",")
+	reNonAlphaNumeric := regexp.MustCompile(`[^a-zA-Z0-9]+`)
+	rePaidForBy := regexp.MustCompile(`paid for by `)
+
+	tagsOriginalList := strings.Split(tagsOriginal, ",")
+	// Iterate allAdsResults
+	for i := range allAdResults {
+		// Process only having those having ExpectedDomains set to false
+		// Check if for advertiser, ads location, engine name, and keyword
+		tagList := tagsOriginalList
+		ads := allAdResults[i]
+		if ads.ExpectedDomains == true {
+			continue
+		}
+		if ads.Engine != "" {
+			engineTag := reNonAlphaNumeric.ReplaceAllString(ads.Engine, "_")
+			engineTag = strings.ToLower(engineTag)
+			engineTag = fmt.Sprintf("private.ads_engine_%s", engineTag)
+			tagList = append(tagList, engineTag)
+		}
+		if ads.Query != "" {
+			queryTag := reNonAlphaNumeric.ReplaceAllString(ads.Query, "_")
+			queryTag = strings.ToLower(queryTag)
+			queryTag = fmt.Sprintf("private.ads_keyword_%s", queryTag)
+			if len(queryTag) > 30 {
+				queryTag = queryTag[:30]
+			}
+			tagList = append(tagList, queryTag)
+		}
+		if ads.Advertiser != "" {
+			adsTag := ads.Advertiser
+			adsTag = strings.ToLower(adsTag)
+			adsTag = rePaidForBy.ReplaceAllString(adsTag, "")
+			adsTag = strings.Replace(adsTag, "paid for by", "", 1)
+			adsTag = reNonAlphaNumeric.ReplaceAllString(adsTag, "_")
+			adsTag = fmt.Sprintf("private.ads_name_%s", adsTag)
+			if len(adsTag) > 30 {
+				adsTag = adsTag[:30]
+			}
+			tagList = append(tagList, adsTag)
+		}
+		if ads.Location != "" {
+			locTag := reNonAlphaNumeric.ReplaceAllString(ads.Location, "_")
+			locTag = strings.ToLower(locTag)
+			locTag = fmt.Sprintf("private.ads_loc_%s", locTag)
+			if len(locTag) > 30 {
+				locTag = locTag[:30]
+			}
+			tagList = append(tagList, locTag)
+		}
+		// if search engine
+		if ads.IsSearchResults == true {
+			tagList = append(tagList, "private.ads_search_result")
+		}
+
+		urlToScan := ads.OriginalAdURL
+
+		urlscanResponse, err := SubmitURLScan(urlscanEndpoint, urlToScan, token, visibility, tagList)
+		if err != nil {
+			log.Fatalf("error submitting url scan: %v\n", err)
+		}
+		allAdResults[i].URLScan = urlscanResponse
+	}
+
+}
+
+// SubmitURLScan submit single URL to the URLScan service for scanning
+func SubmitURLScan(urlscanEndpoint string, urlToScan string, token string, visibility string, tagList []string) (URLScanSubmissionResponse, error) {
 	log.Printf("\n*** URLScan Enabled ***\n")
-	log.Printf("Endpoint URL: %v\n", config.URLScanSubmitter.ScanURL)
+	log.Printf("Endpoint URL: %v\n", urlscanEndpoint)
 	log.Printf("Visibility: %v\n", visibility)
-	log.Printf("Tags: %v\n\n", tags)
-	// UNCOMMENT
-	//log.Printf("Total URLs to submit: %d\n", len(uniqueAdLinks))
-
+	log.Printf("Tags: %v\n", tagList)
 	log.Printf("URL for submission: %s", urlToScan)
+
 	data := map[string]interface{}{
 		"url":        urlToScan,
 		"visibility": visibility,
-		"tags":       taglist,
+		"tags":       tagList,
 	}
 
 	// Convert data to JSON
@@ -57,7 +141,7 @@ func SubmitURLScan(config Config, urlToScan string) (URLScanSubmissionResponse, 
 	}
 
 	// Create a POST request object and set appropriate headers
-	req, err := http.NewRequest("POST", config.URLScanSubmitter.ScanURL, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", urlscanEndpoint, bytes.NewBuffer(jsonData))
 	if err != nil {
 		log.Printf("Error creating request: %v", err)
 		return URLScanSubmissionResponse{}, err
@@ -102,9 +186,6 @@ func SubmitURLScan(config Config, urlToScan string) (URLScanSubmissionResponse, 
 	log.Printf("Country: %s", response.Country)
 	log.Printf("\n*************************\n")
 
-	// Sleep for X seconds every submission
-	fmt.Printf("\nSleeping for %d seconds...\n\n", URLScanSleepSeconds)
-	time.Sleep(time.Duration(URLScanSleepSeconds) * time.Second)
-
 	return response, err
+
 }

@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 )
 
 // removeDuplicateAds filters out ads with duplicate domains from the given list
@@ -44,25 +45,6 @@ func normalizeURL(adURL string) string {
 		return strings.ReplaceAll(adURL, "http://", "https://")
 	}
 	return "https://" + adURL
-}
-
-// processSearchResults handles post-search processing of ads and returns unique Ads
-func processSearchResults(ads []AdResult, userAgent string, noRedirection bool) ([]AdResult, error) {
-	// Remove duplicates
-	uniqueAds, err := removeDuplicateAds(ads)
-	if err != nil {
-		return nil, fmt.Errorf("failed to remove duplicates: %v", err)
-	}
-
-	// Follow redirects if enabled
-	if !noRedirection {
-		for i := range uniqueAds {
-			redirectChain, _ := findRedirectionChain(uniqueAds[i].OriginalAdURL, userAgent)
-			uniqueAds[i].RedirectChain = redirectChain
-		}
-	}
-
-	return uniqueAds, nil
 }
 
 // defangURL modifies a URL to make it non-clickable by replacing "." with "[.]"
@@ -147,47 +129,70 @@ func mergeLists(firstList, secondList []string) []string {
 	return result
 }
 
-// processAdResults processes the ad results and updates the respective lists
-func processAdResults(adResults []AdResult, expectedDomainList []string, allAdResults *[]AdResult, notifications *[]AdResult, config Config) error {
-	// Iterate over each ad result
-	for i := range adResults {
-		adResult := adResults[i]
+// printDomainInfo logs domain information based on whether it is expected or unexpected
+func printDomainInfo(resultAd AdResult, expected bool) {
+	domainToPrint := resultAd.FinalDomainURL
+	urlToPrint := resultAd.FinalRedirectURL
+	originalURL := resultAd.OriginalAdURL
 
-		if !IsExpectedDomain(adResult.FinalDomainURL, expectedDomainList) {
-			if Logger {
-				safePrintf(nil, "\nURL's domain not on expectedDomain: %s not in '%s'\n", adResult.FinalDomainURL, expectedDomainList)
-			}
-			printDomainInfo(adResult, false)
-			adResult.ExpectedDomains = false
-
-			// Submit original advertisement URL to URLScan if enabled
-			if EnableURLScan {
-				urlScanResult, err := SubmitURLScan(config, adResult.OriginalAdURL)
-				if err != nil {
-					log.Printf("Error submitting to URLScan: %v\n", err)
-				} else {
-					adResult.URLScan = urlScanResult
-				}
-			}
-
-			// Append the ad result to the notifications list if notifications are enabled
-			if EnableNotifications {
-				*notifications = append(*notifications, adResult)
-			}
-
-			// Print the redirection chain if enabled
-			if PrintRedirectChain {
-				if err := printRedirectionChain(adResult.RedirectChain); err != nil {
-					return fmt.Errorf("failed to print redirection chain: %w", err)
-				}
-			}
-		} else {
-			// add is in the expected domain list
-			printDomainInfo(adResult, true)
-			adResult.ExpectedDomains = true
-		}
-		// Append the ad result to the allAdResults list
-		*allAdResults = append(*allAdResults, adResult)
+	if PrintCleanLinks {
+		urlToPrint = defangURL(urlToPrint)
+		domainToPrint = defangURL(domainToPrint)
+		originalURL = defangURL(originalURL)
 	}
-	return nil
+
+	if expected {
+		green.Printf("  [+] expected domain: '%s'", resultAd.FinalDomainURL)
+	} else {
+		red.Printf("  [!] unexpected domain: '%s'", resultAd.FinalDomainURL)
+	}
+
+	log.Printf("\t%s => %s\n", domainToPrint, urlToPrint)
+	origDom, _ := extractDomain(originalURL)
+	if domainToPrint != origDom {
+		log.Printf("\t\toriginal URL: %s\n", originalURL)
+	}
+
+	if resultAd.Advertiser != "" {
+		log.Printf("\t\t\tadvertiser name: %s\n\t\t\tadvertiser location: %s\n", resultAd.Advertiser, resultAd.Location)
+	}
+	fmt.Println()
+}
+
+type LogStruct struct {
+	filePath string
+}
+
+// NewLogger initializes a new logger
+func NewLogger(filePath string) *LogStruct {
+	return &LogStruct{filePath: filePath}
+}
+
+func (l *LogStruct) writeLog(level, message string) {
+	f, err := os.OpenFile(l.filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Printf("[ERROR] Could not open log file: %v\n", err)
+		return
+	}
+	timestamp := time.Now().UTC().Format(time.RFC3339)
+	logLine := fmt.Sprintf("[%s] [%s] %s\n", timestamp, level, message)
+
+	if _, err := f.WriteString(logLine); err != nil {
+		fmt.Printf("[ERROR] Could not write to log file: %v\n", err)
+	}
+	if err := f.Close(); err != nil {
+		fmt.Printf("[ERROR] Could not close log file: %v\n", err)
+	}
+}
+
+func (l *LogStruct) Info(message string) {
+	l.writeLog("INFO", message)
+}
+
+func (l *LogStruct) Warn(message string) {
+	l.writeLog("WARN", message)
+}
+
+func (l *LogStruct) Error(message string) {
+	l.writeLog("ERROR", message)
 }

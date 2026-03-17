@@ -12,6 +12,23 @@ func searchSyndicatedAds(query, userAgent, engine string, noRedirectionFlag bool
 
 	page.MustWaitLoad()
 
+	blocked, err := isChallengePage(page)
+	if err != nil {
+		return nil, err
+	}
+
+	if blocked {
+
+	}
+
+	isEmpty, err := isPageEmpty(page)
+	if err != nil {
+		return nil, err
+	}
+
+	if isEmpty {
+	}
+
 	if len(ScreenshotPath) > 0 {
 		takeScreenshot(page, engine, query)
 	}

@@ -9,6 +9,15 @@ import (
 )
 
 func init() {
+
+	// Extract EngineName
+	var engineNames []string
+	for _, se := range searchEnginesFunctions {
+		engineNames = append(engineNames, se.EngineName)
+	}
+	var engineNamesList = strings.Join(engineNames, ",")
+	engineNamesListUsage := fmt.Sprintf("Selected engine to use: %s", engineNamesList)
+
 	flag.StringVar(&ConfigFilePath, "config", ConfigFilePath, "path to config file (default \"config.yaml\")")
 	flag.IntVar(&ConcurrencyLevel, "concurrency", ConcurrencyLevel, "number of concurrent headless browsers (default 4)")
 	flag.StringVar(&ScreenshotPath, "screenshot", ScreenshotPath, "path to store screenshots (if empty, the screenshot feature will be disabled)")
@@ -22,7 +31,9 @@ func init() {
 	flag.StringVar(&HtmlPath, "html", HtmlPath, "path to store search engine result html page (if empty, the htmlPath feature will be disabled)")
 	flag.BoolVar(&Logger, "log", Logger, "enable detailed logging, VERY VERBOSE!")
 	flag.StringVar(&DirectQuery, "directquery", DirectQuery, "Direct query from command line and not using queries on config file")
-	flag.StringVar(&SelectedEngine, "selectedengine", SelectedEngine, getHelpEngineList())
+	flag.StringVar(&SelectedEngine, "selectedengine", SelectedEngine, engineNamesListUsage)
+	flag.StringVar(&ExclusionListFilePath, "exclusionListFilePath", ExclusionListFilePath, "File with list of domains for global exclusion")
+	flag.StringVar(&BrowserProfile, "browserprofile", BrowserProfile, "Profile to use for browser profile")
 	log.SetFlags(0)
 }
 
@@ -36,12 +47,22 @@ func ShowHelp() {
 	os.Exit(1)
 }
 
-// Option to use selected search engine
-func getHelpEngineList() string {
-	var engineNames []string
-	for _, se := range searchEnginesFunctions {
-		engineNames = append(engineNames, se.EngineName)
-	}
-	var engineNamesList = strings.Join(engineNames, ",")
-	return fmt.Sprintf("Available search engine(s) selections separated by comma: %s (Default is all engines)", engineNamesList)
+// PrintFlags prints the current values of the command-line arguments
+func PrintFlags() {
+	log.Println("Configuration Flags:")
+	log.Printf("  ConfigFilePath: %s\n", ConfigFilePath)
+	log.Printf("  ConcurrencyLevel: %d\n", ConcurrencyLevel)
+	log.Printf("  ScreenshotPath: %s\n", ScreenshotPath)
+	log.Printf("  PrintCleanLinks: %t\n", PrintCleanLinks)
+	log.Printf("  EnableNotifications: %t\n", EnableNotifications)
+	log.Printf("  PrintRedirectChain: %t\n", PrintRedirectChain)
+	log.Printf("  UserAgentString: %s\n", UserAgentString)
+	log.Printf("  EnableURLScan: %t\n", EnableURLScan)
+	log.Printf("  OutputFilePath: %s\n", OutputFilePath)
+	log.Printf("  NoRedirection: %t\n", NoRedirection)
+	log.Printf("  HtmlPath: %s\n", HtmlPath)
+	log.Printf("  Logger: %t\n", Logger)
+	log.Printf("  DirectQuery: %s\n", DirectQuery)
+	log.Printf("  SelectedEngine: %s\n", SelectedEngine)
+	log.Printf("  ExclusionList: %s\n\n", ExclusionListFilePath)
 }

@@ -1,9 +1,9 @@
 package internal
 
 import (
-	//"fmt"
+	"fmt"
 	"github.com/go-rod/rod"
-	//"net/url"
+	"net/url"
 )
 
 // searchGoogleAds searches for ads on Google for a given encoded string
@@ -18,6 +18,16 @@ func searchGoogleAds(query, userAgent, engine string, noRedirectionFlag bool) ([
 	page.MustWaitLoad()
 	handleGooglePageInteraction(page)
 
+	// Test for challenge page
+	blocked, err := isChallengePage(page)
+	if err != nil {
+		return nil, err
+	}
+
+	if blocked {
+		// TODO: terminate
+	}
+
 	if len(ScreenshotPath) > 0 {
 		takeScreenshot(page, engine, query)
 	}
@@ -29,6 +39,16 @@ func searchGoogleAds(query, userAgent, engine string, noRedirectionFlag bool) ([
 	if err != nil {
 		return nil, err
 	}
+
+	// Extract Search Results by parsing
+	srLinks, err := extractSRs(browser, page, userAgent, "a.zReHs", "href", query, engine, noRedirectionFlag)
+	if err != nil {
+		return nil, err
+	}
+
+	// Merge with adLinks structs
+	adLinks = append(adLinks, srLinks...)
+
 	return adLinks, nil
 }
 
@@ -42,7 +62,24 @@ func handleGooglePageInteraction(page *rod.Page) {
 	}
 }
 
-// ResolveGoogleAdURL uses the generic extractor
+// ResolveGoogleAdURL parses a Google URL and extracts the final redirect URL
 func ResolveGoogleAdURL(googleURL string) (string, error) {
-	return extractDestURL(googleURL, "adurl")
+
+	// Parse the unescaped URL
+	parsedURL, err := url.Parse(googleURL)
+	if err != nil || parsedURL.Host == "" {
+		return "", fmt.Errorf("Skipping invalid Google URL: %s, Error: %v\n", googleURL, err)
+	}
+
+	// Extract query parameters from the parsed URL
+	queryParams := parsedURL.Query()
+
+	unescapedGoogleAdURL := queryParams.Get("adurl")
+
+	test, err := url.Parse(unescapedGoogleAdURL)
+	if err != nil || test.Host == "" {
+		return "", fmt.Errorf("Skipping invalid Google URL: %s, Error: %v\n", unescapedGoogleAdURL, err)
+	}
+
+	return unescapedGoogleAdURL, nil
 }

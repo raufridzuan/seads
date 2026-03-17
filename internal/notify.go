@@ -3,7 +3,6 @@ package internal
 import (
 	"fmt"
 	"github.com/containrrr/shoutrrr"
-	"log"
 	"time"
 )
 
@@ -30,7 +29,7 @@ func (tn *TelegramNotifier) SendNotificationMessage(message string) error {
 	url := fmt.Sprintf("telegram://%s@telegram?channels=%s", tn.Token, chats)
 	err := shoutrrr.Send(url, message)
 	if err != nil {
-		red.Printf("❌ Error sending Telegram notification: %v", err)
+		fmt.Printf("[Telegram] Error sending notification: %v", err)
 	}
 	return err
 }
@@ -53,7 +52,7 @@ func (sn *SlackNotifier) SendNotificationMessage(message string) error {
 	url := fmt.Sprintf("slack://%s@%s", sn.Token, channels)
 	err := shoutrrr.Send(url, message)
 	if err != nil {
-		red.Printf("❌ Error sending Slack notification: %v", err)
+		fmt.Printf("[Slack] Error sending notification: %v", err)
 	}
 	return err
 }
@@ -80,7 +79,7 @@ func (mn *MailNotifier) SendNotificationMessage(message string) error {
 		mn.Username, mn.Password, mn.Host, mn.Port, mn.From, mailrecipients)
 	err := shoutrrr.Send(url, message)
 	if err != nil {
-		red.Printf("❌ Error sending mail notification: %v", err)
+		fmt.Printf("[Mail] Error sending notification: %v", err)
 	}
 	return err
 }
@@ -96,19 +95,32 @@ func (sn *DiscordNotifier) SendNotificationMessage(message string) error {
 	url := fmt.Sprintf("discord://%s@%s", sn.Token, sn.Webhook_id)
 	err := shoutrrr.Send(url, message)
 	if err != nil {
-		red.Printf("❌ Error sending Discord notification: %v", err)
+		fmt.Printf("[Discord] Error sending notification: %v", err)
 	}
 	return err
 }
 
 // SendNotifications creates the message to be sent and sends it using the specified notification services
-func (config *Config) SendNotifications(adsToNotify []AdResult) {
-	message := createNotificationMessage(adsToNotify)
+func (config *Config) SendNotifications(allAdResults []AdResult) {
+	var adsToNotify []AdResult
 
-	if len(message) != 0 && Logger {
-		log.Printf("\n[Notify] Message to send: \n%s\n\n", message)
+	for i := range allAdResults {
+		ads := allAdResults[i]
+		if ads.ExpectedDomains == true {
+			continue
+		}
+		adsToNotify = append(adsToNotify, ads)
 	}
 
+	if len(adsToNotify) == 0 {
+		fmt.Println("No ads to notify")
+		return
+	}
+
+	message := createNotificationMessage(adsToNotify)
+	if len(message) != 0 {
+		fmt.Printf("\n[Notify]Message to sent: \n%s\n\n", message)
+	}
 	notifiers := []Notifier{}
 	if config.SlackNotifier != nil {
 		notifiers = append(notifiers, config.SlackNotifier)
@@ -128,13 +140,13 @@ func (config *Config) SendNotifications(adsToNotify []AdResult) {
 	for _, notifier := range notifiers {
 		err := notifier.SendNotificationMessage(message)
 		if err != nil {
-			red.Printf("❌ Error sending message via notifier: %v\n", err)
+			fmt.Printf("error sending message via notifier: %v\n", err)
 			continue
 		}
 		notificationsSent = true
 	}
 	if notificationsSent {
-		fmt.Println("✅ Notifications sent!")
+		fmt.Println("notifications sent!")
 	}
 }
 

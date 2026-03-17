@@ -1,20 +1,19 @@
-module github.com/andpalmier/seads
+module seads
 
 go 1.24.2
 
 require (
-	github.com/carlmjohnson/requests v0.24.3
+	github.com/carlmjohnson/requests v0.25.1
 	github.com/containrrr/shoutrrr v0.8.0
 	github.com/fatih/color v1.18.0
 	github.com/go-rod/rod v0.116.2
-	github.com/go-rod/stealth v0.4.9
 	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/ysmood/fetchup v0.3.0 // indirect; newer version is broken
+	github.com/ysmood/fetchup v0.3.0 // indirect
 	github.com/ysmood/goob v0.4.0 // indirect
 	github.com/ysmood/got v0.41.0 // indirect
 	github.com/ysmood/gson v0.7.3 // indirect

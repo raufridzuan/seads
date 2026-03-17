@@ -1,10 +1,9 @@
 package internal
 
 import (
-	"time"
-
 	"github.com/fatih/color"
 	"github.com/go-rod/rod/lib/devices"
+	"time"
 )
 
 // SearchEngineFunction holds the search engine name and its corresponding function
@@ -14,47 +13,45 @@ type SearchEngineFunction struct {
 }
 
 // AdResult contains information regarding an ad found
+// Currently SearchResult shares the same struct
 type AdResult struct {
-	Engine           string    `json:"engine"`
-	Query            string    `json:"query"`
-	OriginalAdURL    string    `json:"OriginalAdURL"`
-	FinalDomainURL   string    `json:"final-domain-url"`
-	FinalRedirectURL string    `json:"final-redirect-url"`
-	RedirectChain    []string  `json:"redirect-chain"`
-	Time             time.Time `json:"time"`
-	Advertiser       string    `json:"advertiser"`
-	Location         string    `json:"location"`
-	AdInfoURL        string    `json:"adsUrl"`
-
-	// REMOVE BOTH
-	ExpectedDomains bool                      `json:"expected-domains"`
-	URLScan         URLScanSubmissionResponse `json:"urlscan"`
+	IsAds            bool                      `json:"isAds"`
+	IsSearchResults  bool                      `json:"isSearchResult"`
+	Engine           string                    `json:"engine"`
+	Query            string                    `json:"query"`
+	OriginalAdURL    string                    `json:"OriginalAdURL"`
+	FinalDomainURL   string                    `json:"final-domain-url"`
+	FinalRedirectURL string                    `json:"final-redirect-url"`
+	RedirectChain    []string                  `json:"redirect-chain"`
+	Time             time.Time                 `json:"time"`
+	Advertiser       string                    `json:"advertiser"`
+	Location         string                    `json:"location"`
+	ExpectedDomains  bool                      `json:"expected-domains"`
+	URLScan          URLScanSubmissionResponse `json:"urlscan"`
 }
 
 var (
 	// command line args
-	ConfigFilePath            = "config.yaml"
-	ConcurrencyLevel          = 4
-	ScreenshotPath            = ""
-	PrintCleanLinks           = false
-	EnableNotifications       = false
-	PrintRedirectChain        = false
-	UserAgentString           = ""
-	EnableURLScan             = false
-	OutputFilePath            = ""
-	NoRedirection             = false
-	HtmlPath                  = ""
-	Logger                    = false
-	DirectQuery               = ""
-	GlobalDomainExclusionList = []string{}
-	SelectedEngine            = ""
-
-	// Sleep interval for URLScan
-	URLScanSleepSeconds int = 1
+	ConfigFilePath        = "config.yaml"
+	ConcurrencyLevel      = 4
+	ScreenshotPath        = ""
+	PrintCleanLinks       = false
+	EnableNotifications   = false
+	PrintRedirectChain    = false
+	UserAgentString       = ""
+	EnableURLScan         = false
+	OutputFilePath        = ""
+	NoRedirection         = false
+	HtmlPath              = ""
+	Logger                = false
+	DirectQuery           = ""
+	SelectedEngine        = ""
+	ExclusionListFilePath = ""
+	BrowserProfile        = ""
 
 	// search engine URLs
 	googleurl     = "https://www.google.com/search?q="
-	bingurl       = "https://www.bing.com/search?form=QBLH&q="
+	bingurl       = "https://www.bing.com/search?q="
 	duckduckgourl = "https://duckduckgo.com/?ia=web&q="
 	yahoourl      = "https://search.yahoo.com/search?q="
 	syndicatedurl = "https://syndicatedsearch.goog/afs/ads?adsafe=medium&adtest=off&adpage=1&channel=ch1&client=amg-informationvine&r=m&hl=en&ie=utf-8&adrep=5&oe=utf-8&type=0&format=p5%7Cn5&ad=n5p5&output=uds_ads_only&v=3&bsl=8&pac=0&u_his=5&uio=--&cont=text-ad-block-0%7Ctext-ad-block-1&rurl=https%3A%2F%2Fwww.ask.com%2Fweb%3F%26o%3D0%26an%3Dorganic%26ad%3DOther%2BSEO%26capLimitBypass%3Dfalse%26qo%3DserpSearchTopBox%26q&q="
@@ -70,9 +67,6 @@ var (
 	doubleclickdomain = "ad.doubleclick.net"
 	googleadsservices = "googleadservices.com"
 	dadxio            = "d.adx.io"
-	dartsearch        = "clickserve.dartsearch.net"
-	clickcease        = "monitor.clickcease.com"
-	agkn              = "d.agkn.com"
 
 	searchEngineURLs = map[string]string{
 		"google":     googleurl,
@@ -85,9 +79,7 @@ var (
 	}
 
 	// some search engines prefer specific User-Agent strings
-	ChromeWinUA   = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
-	ChromeMacOsUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
-	userAgents    = []string{ChromeWinUA, ChromeMacOsUA}
+	ChromeMacUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
 
 	// ad link selectors
 	googleSelector     = "a.sVXRqc"
@@ -105,8 +97,6 @@ var (
 	yahooScrollBtn  = `button#scroll-down-btn`
 	aolCookieBtn    = `button[value="reject"]`
 	aolScrollBtn    = `button#scroll-down-btn`
-	adInfoText      = `//div[div[text()="Location"]]/div[2]/text() | //div[div[text()="Location"]]/preceding-sibling::div[1]/div[2]/text()`
-	adDirectLink    = `//a[normalize-space(text())="See more ads"]`
 
 	// search engine functions
 	searchEnginesFunctions = []SearchEngineFunction{
@@ -121,15 +111,14 @@ var (
 
 	// color variables
 	green  = color.New(color.FgGreen)
-	red    = color.New(color.FgRed)
 	italic = color.New(color.Italic)
-	bold   = color.New(color.Bold)
+	red    = color.New(color.FgRed)
 
 	// Laptop device to be used
 	Laptop = devices.Device{
 		Title:          "laptop",
 		Capabilities:   []string{},
-		UserAgent:      ChromeWinUA,
+		UserAgent:      ChromeMacUA,
 		AcceptLanguage: "en",
 		Screen: devices.Screen{
 			DevicePixelRatio: 1,
@@ -152,6 +141,5 @@ var (
 ╚════██║██╔══╝  ██╔══██║██║  ██║╚════██║
 ███████║███████╗██║  ██║██████╔╝███████║
 ╚══════╝╚══════╝╚═╝  ╚═╝╚═════╝ ╚══════╝
-Search Engine Ad Scanner - by andpalmier
-`
+Search Engine Ad Scanner - by andpalmier`
 )
