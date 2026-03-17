@@ -30,7 +30,8 @@ Cybercriminals are increasingly using search engines ads to drive traffic to phi
 - **Expected domains**: Specify expected domains to filter out known advertisers from notifications.
 - **Global Domain Exclusion**: Specify list of domains to be globally excluded instead of repeating on config list.
 - **Search Engine Selection**: Command line option to select desired search engine.
-- **DirectQuery"**: Command line option to use single query.
+- **DirectQuery**: Command line option to use single query.
+- **Browser Profile**: Load a browser profile
 
 > [!NOTE]  
 > Currently, the Google search detection doesn't always work because the automated browser is often prompted by a CAPTCHA. As a workaround, Syndicated and AdSense are used to gather ads from Google ([see here](https://support.google.com/adsense/answer/14201307)). This may not be 100% accurate, but it is the best available option as of now.
@@ -134,6 +135,12 @@ For example, in a Linux machine you can set up a cron job to run `seads` every d
 0 9 * * * /path/to/seads -config /path/to/config.yaml -screenshot /path/to/screenshots -notify
 ```
 
+*dev-seo*: Run without headless where need environment with UI. Concurrency not support yet. Pointing to a folder with browser profile
+
+```bash
+seads -config ./directquery.yaml -screenshot ./screenshots/ -html ./htmls/ -out ./out/test.json -noredirect -concurrency 1 -exclusionListFilePath ./exclusion-list.txt -selectedengine <search engine> -browserprofile ./browser-profile -directquery "airpods max"
+```
+
 Be sure to update the command to reflect the correct paths for the `seads` binary and the configuration file.
 If using Docker, adjust the command accordingly for Docker execution.
 On Windows and macOS, you can achieve similar scheduling using Task Scheduler or `launchd`.
@@ -144,6 +151,8 @@ Screenshot example:
 ### Available flags
 
 ```
+  -browserprofile string
+        Profile to use for browser profile
   -config (string) [REQUIRED]
         path to config file (default "config.yaml") (default "config.yaml")
   -cleanlinks
